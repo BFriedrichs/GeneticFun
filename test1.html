@@ -1,0 +1,172 @@
+<html>
+    <head>
+        <style>
+            * {
+                font-family: "Courier New", Courier, monospace;
+            }
+
+        </style>
+    </head>
+    <body>
+        <div id="bestString"></div>
+        <div id="outputs"></div>
+    </body>
+
+    <script>
+        var $bestString = document.getElementById('bestString')
+        var $outputs = document.getElementById('outputs')
+
+        var populationSize = 200
+
+        var mutationRate = 0.01
+
+        var bestFitness = 0
+
+        var targetString = "This is me testing a genetic algorithm! :)"
+        var fitnessStep = 1 / targetString.length
+
+        function createRandomLetter() {
+            var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 !:;-_()[]{}"
+            return possible.charAt(Math.floor(Math.random() * possible.length))
+        }
+
+        function createRandomString(stringLength) {
+            var result = ""
+            for(var i = 0; i < stringLength; i++) {
+                result += createRandomLetter()
+            }
+            return result
+        }
+
+        var PopulationEntry = function(input) {
+            this.string = input || createRandomString(targetString.length)
+            this.fitness = 0
+            this.getFitness = function() {
+                var fitness = 0
+                for(var i = 0; i < this.string.length; i++) {
+                    if(this.string.charAt(i) == targetString.charAt(i)) {
+                        fitness += fitnessStep
+                    }
+                }
+                this.fitness = fitness
+                return fitness
+            }
+
+            this.mutate = function() {
+                result = ""
+                for(var i = 0; i < this.string.length; i++) {
+                    if(Math.random() < mutationRate) {
+                        result += createRandomLetter()
+                    } else {
+                        result += this.string.charAt(i)
+                    }
+                }
+                this.string = result
+            }
+
+            this.getCrossedCopy = function(otherEntry) {
+                var splitLength = Math.round(targetString.length / 2)
+                var input = this.string.substring(0, splitLength) + otherEntry.string.substring(splitLength, targetString.length)
+                return new PopulationEntry(input)
+            }
+        }
+
+        var Population = function() {
+            this.entries = []
+
+            this.populateRandomly = function() {
+                for(var i = 0; i < populationSize; i++) {
+                    this.entries.push(new PopulationEntry())
+                }
+            }
+
+            this.sort = function() {
+                this.entries.sort((a,b)=>a.getFitness()<b.getFitness()?1:-1)
+            }
+            this.sort()
+
+            this.getFitness = function() {
+                var populationFitness = 0
+                for(var i in this.entries) {
+                    populationFitness += this.entries[i].getFitness()
+                }
+                return populationFitness
+            }
+
+            this.pickParents = function() {
+                var result = []
+                var firstId = null
+                for(var i = 0; i < 2; i++) {
+                    var currPickNum = Math.random()
+
+                    var fitnessStack = 0
+                    for(var j in this.entries) {
+                        var entry = this.entries[j]
+                        fitnessStack += entry.getFitness()
+                        if(currPickNum < fitnessStack) {
+                            if(j == firstId) {
+                                continue
+                            }
+
+                            result.push(entry)
+                            if(!firstId) {
+                                firstId = j
+                            }
+                            break
+                        }
+                    }
+                }
+                while(result.length < 2) {
+                    result.push(this.entries[Math.floor(Math.random() * this.entries.length)])
+                }
+
+                return result
+            }
+
+            this.newGeneration = function() {
+                var newP = new Population()
+                for(var i = 0; i < populationSize; i++) {
+                    var picks = this.pickParents()
+
+                    var newChild = picks[0].getCrossedCopy(picks[1])
+                    newChild.mutate()
+
+                    newP.entries[i] = newChild
+                }
+                newP.sort()
+
+                return newP
+            }
+        }
+
+        var currPopulation = new Population()
+        currPopulation.populateRandomly()
+
+        setInterval(function() {
+            $outputs.innerHTML = ""
+            for(var i in currPopulation.entries) {
+                var entry = currPopulation.entries[i]
+                var el = document.createElement('p')
+                el.textContent = entry.string
+
+                $outputs.insertBefore(el, $outputs.firstChild)
+
+                if(entry.fitness > bestFitness) {
+                    bestFitness = entry.fitness
+                    while($bestString.hasChildNodes()) {
+                        $bestString.removeChild($bestString.lastChild)
+                    }
+
+                    var bS = document.createElement('p')
+                    bS.textContent = "Best String: " + entry.string
+                    $bestString.appendChild(bS)
+
+                    var fS = document.createElement('p')
+                    fS.textContent = "Fitness: " + Math.round(entry.getFitness() * 100) + "%"
+                    $bestString.appendChild(fS)
+                }
+            }
+            currPopulation = currPopulation.newGeneration()
+        }, 5)
+    </script>
+</html>
